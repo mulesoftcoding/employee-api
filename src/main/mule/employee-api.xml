@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:validation="http://www.mulesoft.org/schema/mule/validation"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="e41513ca-80e8-4e47-bc55-dacd29202c74" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="shrutis@123" database="onboard" />
+	</db:config>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="a001e7a0-2c73-4fba-870e-531e876048fe" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="employee-apiFlow" doc:id="4a8b9012-6255-4fd8-a8b6-12294ab7cb3d" >
+		<http:listener doc:name="Listener" doc:id="6c019997-8659-44a4-a118-ea095f96e74c" config-ref="HTTP_Listener_config" path="employee/{empID}"/>
+		<logger level="INFO" doc:name="Logger" doc:id="91026ccd-88f0-4b7e-885a-ecc3938e0c43" />
+		<validation:is-number numberType="INTEGER" doc:id="5f6f9a5f-14d2-405d-8c71-68525a75e50c" value="#[attributes.uriParams.empID]" message='#["EmpID Parameter Must be a Number"]' doc:name="Is empID number" />
+		<db:select doc:name="Select" doc:id="a96e6f1a-504b-476d-a5ff-b738da3cfe31" config-ref="Database_Config">
+			<db:sql ><![CDATA[select mas.emp_id, mas.emp_name, mas.emp_status from onboard.emp_master mas where mas.emp_id = :emp_id
+]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	"emp_id": attributes.uriParams.empID
+}]]]></db:input-parameters>
+		</db:select>
+		<choice doc:name="Choice" doc:id="466b9366-fac8-42c8-8981-566dd952326c" >
+			<when expression="#[sizeOf(payload) &gt; 0]" >
+				<ee:transform doc:name="Prepare Success Response" doc:id="912cfce2-7cd5-4389-bbd0-9b4db876d312" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"employeeID": payload[0].emp_id,
+	"employeeName": payload[0].emp_name,
+	"employeeStatus": payload[0].emp_status
+}
+]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Prepare Not Found Response" doc:id="2791bbd7-e939-4783-b2e1-a5077f3c3cd6" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"status": 404,
+	"message": "Employee Not Found"
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[404]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+		<logger level="INFO" doc:name="Logger" doc:id="8c80ab11-8bca-407d-8cb6-29000bf01fba" />
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error propagate" doc:id="0e176ee3-db2e-4a33-9f99-1cf031dfaa6d" type="VALIDATION:INVALID_NUMBER" >
+				<ee:transform doc:name="Transform Message" doc:id="580c9263-8a6a-4088-93d3-8f3fe144c364" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	status: 400,
+	message: error.description
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[400]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="d4e324df-07f1-4c10-aa71-73e887b0117b" type="DB:CONNECTIVITY">
+				<ee:transform doc:name="Prepare Database Connection Lost Response" doc:id="8a20878c-a15c-49df-a9c4-9b94b9fad9f7" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	status: 500,
+	message: "Database Connection Lost"
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[500]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-continue>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="78189928-e11b-49bb-8181-d31d79d72952" type="ANY">
+				<ee:transform doc:name="Prepare Internal Server Error Response" doc:id="687f9adf-af8b-4e0d-95ac-05598a011002" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	status: 500,
+	message: "Internal Server Error"
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[500]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+</mule>

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:munit="http://www.mulesoft.org/schema/mule/munit" xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xsi:schemaLocation="
+		http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+		http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+		http://www.mulesoft.org/schema/mule/munit-tools  http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
+	<munit:config name="new-test-suite.xml" />
+	
+	<munit:test name="fetch-employeers-success-test-case" doc:id="86a67fd1-6647-49df-bb83-ccb9e880234a">
+		<munit:behavior >
+			<munit-tools:mock-when doc:name="Mock DB Output" doc:id="a8488245-02ef-4c70-a6e1-0731f10a61d8" processor="db:select">
+				<munit-tools:with-attributes >
+					<munit-tools:with-attribute whereValue="Select" attributeName="doc:name" />
+					<munit-tools:with-attribute whereValue="a96e6f1a-504b-476d-a5ff-b738da3cfe31" attributeName="doc:id" />
+				</munit-tools:with-attributes>
+				<munit-tools:then-return >
+					<munit-tools:payload value="#[output application/java --- readUrl('classpath://getEmployeeByIDTestResources/mock_db_payload.dwl')]" mediaType="application/java" />
+				</munit-tools:then-return>
+			</munit-tools:mock-when>
+		</munit:behavior>
+		<munit:execution >
+			<munit:set-event doc:name="Set Query Params Event" doc:id="e7e46b3b-24ef-4f73-91fa-d069e374a249" >
+				<munit:attributes value="#[readUrl('classpath://getEmployeeByIDTestResources/set_input_event.dwl')]" />
+			</munit:set-event>
+			<flow-ref doc:name="ftech-employee-by-id-flow" doc:id="d3761dce-a020-4f6f-b1cc-e07c1ffd0d7e" name="employee-apiFlow"/>
+		</munit:execution>
+		<munit:validation>
+			<logger level="INFO" doc:name="Info Log" doc:id="f7196984-45fe-4253-bb03-aa84092b76b7" message="#[payload]"/>
+			<munit-tools:assert doc:name="Assert Success Response" doc:id="2426d7bd-bf6e-4bb9-9986-ca79c9aabd17" >
+				<munit-tools:that ><![CDATA[#[%dw 2.0
+import getEmployeeByIDTestResources::assert_success_response
+---
+assert_success_response::main({payload: payload, attributes: attributes, vars:vars})]]]></munit-tools:that>
+			</munit-tools:assert>
+		</munit:validation>
+	</munit:test>
+<!-- [STUDIO:"fetch-employeers-not-found-test-case"]	<munit:test name="fetch-employeers-not-found-test-case" doc:id="5c96731d-3e18-43c2-9723-714d767a1060">
+		<munit:behavior>
+			<munit-tools:mock-when doc:name="Mock DB Output" doc:id="5dff6ea2-9f65-4aed-95d5-4801fdaedeed" processor="db:select" >
+				<munit-tools:with-attributes >
+					<munit-tools:with-attribute whereValue="a96e6f1a-504b-476d-a5ff-b738da3cfe31" attributeName="doc:id" />
+				</munit-tools:with-attributes>
+				<munit-tools:then-return >
+					<munit-tools:payload value="#[[]]" mediaType="application/java" />
+				</munit-tools:then-return>
+			</munit-tools:mock-when>
+
+		</munit:behavior>
+		<munit:execution>
+			<munit:set-event doc:name="Set Query Params Event" doc:id="9151242a-82a7-426d-a5d7-ca1968200a1a" >
+				<munit:attributes value="#[readUrl('classpath://getEmployeeByIDTestResources/set_input_event.dwl')]" />
+			</munit:set-event>
+			<flow-ref doc:name="ftech-employee-by-id-flow" doc:id="a2474c99-8d3d-4a60-9efb-6eaebf93e805" name="employee-apiFlow" />
+
+		</munit:execution>
+		<munit:validation>
+			<logger level="INFO" doc:name="Info Log" doc:id="ef31d69e-42cf-45d7-9ea2-a93d7f7e9a0d" message="#[payload]"/>
+			<munit-tools:assert doc:name="Assert Not Found Response " doc:id="23299685-591d-41ca-af4d-63beb8ac67fe" >
+				<munit-tools:that ><![CDATA[#[%dw 2.0
+import getEmployeeByIDTestResources::assert_not_found_response
+&#45;&#45;-
+assert_not_found_response::main({payload: payload, attributes: attributes, vars:vars})]]]></munit-tools:that>
+			</munit-tools:assert>
+
+		</munit:validation>
+
+	</munit:test> [STUDIO] -->
+	<munit:test name="fetch-employee-by-id-bad-request-error-test-case" doc:id="4f9eb5ae-c80e-47fd-be2a-4096392b0924" >
+		<munit:execution >
+			<munit:set-event doc:name="Set Invalid empID Param Event" doc:id="86c078ac-4239-44fa-a506-85035303a105" >
+				<munit:attributes value="#[readUrl('classpath://getEmployeeByIDTestResources/set_bad_request_event.dwl')]" />
+			</munit:set-event>
+			<try doc:name="Try" doc:id="74208a54-3202-4588-bef5-15ac93764fe6" >
+				<flow-ref doc:name="ftech-employee-by-id-flow" doc:id="7e2dd99b-5c1e-456e-a87c-42f6f632d323" name="employee-apiFlow" />
+				<error-handler >
+					<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="e93e259e-54e8-45d9-88dc-875a9c8c3cd9" type="ANY">
+						<logger level="INFO" doc:name="Continue Log" doc:id="e31f05bf-9541-4e78-9041-4c282774916a" message="Continue...."/>
+					</on-error-continue>
+				</error-handler>
+			</try>
+		</munit:execution>
+		<munit:validation >
+			<logger level="INFO" doc:name="Info Log" doc:id="536b5a60-0b2c-4d24-bf3d-7f4093253ff2" message="#[payload]"/>
+			<munit-tools:assert doc:name="Assert Bad Request Response" doc:id="987f8688-9641-45a6-9be0-7a6b5a7dec74" >
+				<munit-tools:that ><![CDATA[#[%dw 2.0
+import getEmployeeByIDTestResources::assert_bad_request_error_response
+---
+assert_bad_request_error_response::main({payload:payload, attributes: attributes, vars: vars})]]]></munit-tools:that>
+			</munit-tools:assert>
+		</munit:validation>
+	</munit:test>
+	<munit:test name="fetch-employee-by-id-db-connectivity-error-test-case" doc:id="23198348-cae6-4795-8b63-638262d383fc" >
+		<munit:behavior >
+			<munit-tools:mock-when doc:name="Mock DB Connectivity Error" doc:id="1a9f2fe1-9519-48d8-98b1-902ebf337128" processor="db:select">
+				<munit-tools:with-attributes >
+					<munit-tools:with-attribute whereValue="a96e6f1a-504b-476d-a5ff-b738da3cfe31" attributeName="doc:id" />
+				</munit-tools:with-attributes>
+				<munit-tools:then-return >
+					<munit-tools:error typeId="DB:CONNECTIVITY" />
+				</munit-tools:then-return>
+			</munit-tools:mock-when>
+		</munit:behavior>
+		<munit:execution >
+			<munit:set-event doc:name="Set Query Params Event" doc:id="bc21bbf6-0779-4458-9ce7-99c3860f328e" >
+				<munit:attributes value="#[readUrl('classpath://getEmployeeByIDTestResources/set_input_event.dwl')]" />
+			</munit:set-event>
+			<flow-ref doc:name="ftech-employee-by-id-flow" doc:id="feeb72bf-086e-48e7-8dd6-7e24bbf6bfa7" name="employee-apiFlow"/>
+		</munit:execution>
+		<munit:validation >
+			<logger level="INFO" doc:name="Info Log" doc:id="12256def-e291-430c-8704-4b8f00eaf3a4" message="#[payload]"/>
+			<munit-tools:assert doc:name="Assert DB Connectivity Error Response" doc:id="e1febb78-ad32-4ea2-b7eb-90b4b0af7ca6" >
+				<munit-tools:that ><![CDATA[#[%dw 2.0
+import getEmployeeByIDTestResources::assert_db_connectivity_error_response
+---
+assert_db_connectivity_error_response::main({payload:payload, attributes: attributes, vars: vars})]]]></munit-tools:that>
+			</munit-tools:assert>
+		</munit:validation>
+	</munit:test>
+	<munit:test name="fetch-employee-by-id-server-error-test-case" doc:id="a84df8ec-a8b2-42f7-97c5-26bfdab0c759" >
+		<munit:behavior>
+			<munit-tools:mock-when doc:name="Mock DB ANY Error" doc:id="e5741a75-1834-429f-be02-1cedca448da1" processor="db:select" >
+				<munit-tools:with-attributes >
+					<munit-tools:with-attribute whereValue="a96e6f1a-504b-476d-a5ff-b738da3cfe31" attributeName="doc:id" />
+				</munit-tools:with-attributes>
+				<munit-tools:then-return >
+					<munit-tools:error typeId="ANY" />
+				</munit-tools:then-return>
+			</munit-tools:mock-when>
+		</munit:behavior>
+		<munit:execution >
+			<munit:set-event doc:name="Set Query Params Event" doc:id="6aa67ef1-4f38-43e3-bed1-9a528c5bf301" >
+				<munit:attributes value="#[readUrl('classpath://getEmployeeByIDTestResources/set_input_event.dwl')]" />
+			</munit:set-event>
+			<flow-ref doc:name="ftech-employee-by-id-flow" doc:id="0e96bec2-8d1e-4ba2-b6a9-c51d4a0e9e94" name="employee-apiFlow" />
+		</munit:execution>
+		<munit:validation >
+			<logger level="INFO" doc:name="Info Log" doc:id="39388508-74d3-40d0-b26f-0f36fd0bf89f" message="#[payload]" />
+			<munit-tools:assert doc:name="Assert DB Connectivity Error Response" doc:id="1a276515-c675-44b9-bb78-69503b17765d" >
+				<munit-tools:that ><![CDATA[#[%dw 2.0
+import getEmployeeByIDTestResources::assert_server_error_response
+---
+assert_server_error_response::main({payload:payload, attributes: attributes, vars: vars})]]]></munit-tools:that>
+			</munit-tools:assert>
+		</munit:validation>
+	</munit:test>
+
+
+</mule>
